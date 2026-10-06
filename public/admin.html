@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>كمّلها | لوحة الإدارة والتحكم السري</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { overflow-y: auto; padding: 20px; }
+    .admin-container { max-width: 900px; margin: auto; display: flex; flex-direction: column; gap: 20px; }
+    .admin-panel { background: var(--panel-bg); padding: 20px; border-radius: 16px; border: 1px solid #334155; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+    th, td { padding: 10px; border-bottom: 1px solid #334155; text-align: center; }
+    th { background: #0f172a; color: var(--accent-gold); }
+    .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; }
+    .badge-active { background: #059669; }
+    .badge-expired { background: #dc2626; }
+    .action-btn { padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; cursor: pointer; border: none; }
+    .ban-btn { background: #ef4444; color: #fff; }
+    .unban-btn { background: #10b981; color: #fff; }
+    .link-box { font-size: 0.75rem; word-break: break-all; color: var(--accent-cyan); }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    
+    <!-- قفل الأدمن بالماستر كود (7788) -->
+    <div id="admin-login" class="admin-panel" style="text-align: center;">
+      <h2>دخول لوحة التحكم السرية 🔒</h2>
+      <div class="input-group" style="max-width: 300px; margin: 15px auto;">
+        <input type="password" id="master-code-input" placeholder="أدخل الماستر كود (7788)">
+      </div>
+      <button id="btn-admin-login" class="btn primary-btn">تحقق ودخول</button>
+    </div>
+
+    <!-- لوحة التحكم الرئيسية -->
+    <div id="admin-dashboard" class="hidden">
+      <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h1>لوحة تحكم "كمّلها" 👑</h1>
+        <div>الغرف النشطة حالياً: <span id="stat-rooms" style="color: var(--accent-gold); font-weight: bold;">0</span></div>
+      </header>
+
+      <!-- توليد التذاكر الذكية -->
+      <section class="admin-panel">
+        <h3>مولد التذاكر الذكية (Vouchers Generator) 🎫</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px;">
+          <div class="input-group">
+            <label>نوع التذكرة:</label>
+            <select id="v-type" style="padding: 10px; border-radius: 8px; background: #0f172a; color: #fff;">
+              <option value="single">فردي (جهاز واحد)</option>
+              <option value="squad">شلة (4 أجهزة)</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>المدة الصالحة:</label>
+            <select id="v-duration" style="padding: 10px; border-radius: 8px; background: #0f172a; color: #fff;">
+              <option value="1_match">جيم واحد (حتى 5 نقاط)</option>
+              <option value="1_hour">ساعة واحدة</option>
+              <option value="24_hours">24 ساعة</option>
+              <option value="7_days">7 أيام</option>
+              <option value="30_days">30 يوماً</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>السعر المرجعي (ج.م):</label>
+            <input type="number" id="v-price" value="20">
+          </div>
+        </div>
+        <button id="btn-generate-voucher" class="btn primary-btn" style="margin-top: 15px;">توليد تذكرة ورابط مباشر ⚡</button>
+      </section>
+
+      <!-- جدول التذاكر الصادرة -->
+      <section class="admin-panel" style="margin-top: 20px;">
+        <h3>سجل التذاكر الصادرة</h3>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>كود التذكرة</th>
+                <th>النوع</th>
+                <th>المدة</th>
+                <th>الأجهزة المرتبطة</th>
+                <th>الحالة</th>
+                <th>رابط الدخول المباشر</th>
+              </tr>
+            </thead>
+            <tbody id="vouchers-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- جدول مراقبة وحظر اللاعبين -->
+      <section class="admin-panel" style="margin-top: 20px;">
+        <h3>اللاعبين المسجلين والتحكم بالحظر 🛡️</h3>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>معرف الجهاز (Player ID)</th>
+                <th>الاسم الأخير</th>
+                <th>آخر ظهور</th>
+                <th>الحالة</th>
+                <th>إجراء فوري</th>
+              </tr>
+            </thead>
+            <tbody id="players-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    document.getElementById('btn-admin-login').onclick = () => {
+      const code = document.getElementById('master-code-input').value.trim();
+      socket.emit('admin_auth', code);
+    };
+
+    socket.on('admin_auth_success', () => {
+      document.getElementById('admin-login').classList.add('hidden');
+      document.getElementById('admin-dashboard').classList.remove('hidden');
+    });
+
+    socket.on('admin_auth_failed', () => alert('ماستر كود خاطئ!'));
+
+    document.getElementById('btn-generate-voucher').onclick = () => {
+      socket.emit('admin_generate_voucher', {
+        type: document.getElementById('v-type').value,
+        duration: document.getElementById('v-duration').value,
+        price: document.getElementById('v-price').value
+      });
+    };
+
+    socket.on('admin_data', ({ vouchers, players, banned, activeRooms }) => {
+      document.getElementById('stat-rooms').textContent = activeRooms;
+
+      // تحديث جدول التذاكر
+      const vBody = document.getElementById('vouchers-table-body');
+      vBody.innerHTML = '';
+      const domain = window.location.origin;
+
+      vouchers.forEach(v => {
+        const tr = document.createElement('tr');
+        const directLink = `${domain}/?pass=${v.code}`;
+        tr.innerHTML = `
+          <td><strong>${v.code}</strong></td>
+          <td>${v.type === 'squad' ? 'شلة (4)' : 'فردي (1)'}</td>
+          <td>${v.duration}</td>
+          <td>${(v.devices || []).length} / ${v.max_devices}</td>
+          <td><span class="badge ${v.status === 'active' ? 'badge-active' : 'badge-expired'}">${v.status}</span></td>
+          <td class="link-box"><a href="${directLink}" target="_blank" style="color:var(--accent-cyan);">${directLink}</a></td>
+        `;
+        vBody.appendChild(tr);
+      });
+
+      // تحديث جدول اللاعبين والحظر
+      const pBody = document.getElementById('players-table-body');
+      pBody.innerHTML = '';
+      players.forEach(p => {
+        const isBanned = banned.includes(p.player_id);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${p.player_id}</td>
+          <td>${p.name || 'لاعب'}</td>
+          <td>${new Date(p.last_seen).toLocaleTimeString('ar-EG')}</td>
+          <td><span class="badge ${isBanned ? 'badge-expired' : 'badge-active'}">${isBanned ? 'محظور 🚫' : 'نشط'}</span></td>
+          <td>
+            <button class="action-btn ${isBanned ? 'unban-btn' : 'ban-btn'}" onclick="toggleBan('${p.player_id}')">
+              ${isBanned ? 'فك الحظر' : 'طرد وحظر فوري'}
+            </button>
+          </td>
+        `;
+        pBody.appendChild(tr);
+      });
+    });
+
+    window.toggleBan = (playerId) => {
+      if (confirm(`هل أنت متأكد من تغيير حالة حظر اللاعب ${playerId}؟`)) {
+        socket.emit('admin_toggle_ban', { playerId });
+      }
+    };
+  </script>
+</body>
+</html>

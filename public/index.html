@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>كمّلها | لعبة البطاقات التنافسية الجماعية</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- بوابة قفل الدخول (التذكرة) -->
+    <div id="auth-gate" class="screen modal-overlay">
+      <div class="modal-card">
+        <h1 class="logo-title">كمّلها 👑</h1>
+        <p class="tagline">لعبة الصيد والتركيز والمباغتة الجماعية</p>
+        <div class="input-group">
+          <label>اسم اللاعب:</label>
+          <input type="text" id="player-name-input" placeholder="اكتب اسمك..." maxlength="15">
+        </div>
+        <div class="input-group">
+          <label>كود التذكرة الذكية:</label>
+          <input type="text" id="voucher-code-input" placeholder="أدخل كود التذكرة (KM-XXXXXX)">
+        </div>
+        <button id="btn-submit-auth" class="btn primary-btn">دخول الساحة 🚀</button>
+        <div class="auth-footer">
+          <button id="btn-buy-physical" class="btn text-btn">🛒 شراء النسخة الورقية الحقيقية</button>
+          <button id="btn-open-rules" class="btn text-btn">📜 شرح القواعد</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- شاشة الردهة (Lobby) -->
+    <div id="lobby-screen" class="screen hidden">
+      <header class="lobby-header">
+        <div class="user-badge">
+          <span class="user-name" id="lobby-username"></span>
+          <span class="user-id" id="lobby-userid"></span>
+        </div>
+        <button id="btn-audio-toggle" class="btn icon-btn">🔊</button>
+      </header>
+
+      <main class="lobby-main">
+        <div class="lobby-box">
+          <h2>ابدأ اللعب الآن</h2>
+          <button id="btn-create-room" class="btn primary-btn">إنشاء غرفة جديدة 👑</button>
+          <div class="divider">أو</div>
+          <div class="join-box">
+            <input type="text" id="room-code-input" placeholder="كود الغرفة (5 حروف)" maxlength="5">
+            <button id="btn-join-room" class="btn secondary-btn">انضمام 🎮</button>
+          </div>
+        </div>
+
+        <div class="rules-shortcut-box">
+          <button class="btn info-btn" onclick="openRulesModal()">📖 كيف تلعب "كمّلها"؟</button>
+          <button class="btn shop-btn" onclick="openShopModal()">🎁 اطلب النسخة الورقية الفاخرة</button>
+        </div>
+      </main>
+    </div>
+
+    <!-- شاشة اللعب التنافسية (Game Arena) -->
+    <div id="game-screen" class="screen hidden">
+      <!-- شريط معلومات الغرفة والخصوم العلوي -->
+      <header class="arena-header">
+        <div class="room-pill">غرفة: <span id="display-room-code"></span></div>
+        <div class="timer-pill" id="timer-display">⏱️ 15</div>
+        <button id="btn-leave-room" class="btn leave-btn">خروج 🚪</button>
+      </header>
+
+      <!-- الخصوم (2 إلى 4 لاعبين) -->
+      <section id="opponents-container" class="opponents-bar"></section>
+
+      <!-- منطقة إشعارات الكوماندز والأحداث -->
+      <div id="game-alert-banner" class="alert-banner hidden"></div>
+
+      <!-- ساحة اللعب الوسطى: المقلوب والمكشوف -->
+      <section class="arena-center">
+        <!-- كروت السحب المقلوبة -->
+        <div class="deck-slot" id="draw-deck">
+          <div class="card card-back">
+            <div class="back-pattern">KM</div>
+            <span class="deck-count" id="deck-counter">0</span>
+          </div>
+          <span class="slot-label">اسحب كارت</span>
+        </div>
+
+        <!-- الكارت المسحوب مؤقتاً باليد -->
+        <div class="drawn-slot" id="drawn-slot">
+          <!-- يظهر هنا الكارت المسحوب لحظياً -->
+        </div>
+
+        <!-- الأرض المكشوفة -->
+        <div class="discard-slot" id="discard-deck">
+          <div class="card-placeholder" id="discard-placeholder">الأرض فارغة</div>
+          <span class="slot-label">الأرض المكشوفة</span>
+        </div>
+      </section>
+
+      <!-- خيارات الدور وأزرار التحكم -->
+      <section class="arena-actions" id="turn-actions">
+        <button id="btn-discard-drawn" class="btn discard-action-btn hidden">رمي في المكشوف 🗑️</button>
+        <button id="btn-kamelha" class="btn kamelha-btn">كمّلتها! 👑</button>
+      </section>
+
+      <!-- يد اللاعب السفلية (4 كروت مع مراعاة الحواف) -->
+      <footer class="player-hand-container">
+        <div class="hand-meta">
+          <span id="player-status-tag" class="status-tag">دورك للعب الآن!</span>
+        </div>
+        <div class="hand-cards" id="my-hand"></div>
+      </footer>
+    </div>
+
+    <!-- نافذة كشف الكروت في نهاية الجولة (8 ثوانٍ) -->
+    <div id="round-reveal-modal" class="modal-overlay hidden">
+      <div class="modal-card wide">
+        <h2 id="reveal-title">نتائج الجولة! 🃏</h2>
+        <div id="reveal-players-container" class="reveal-grid"></div>
+        <p class="reveal-countdown">تبدأ الجولة التالية خلال ثوانٍ...</p>
+      </div>
+    </div>
+
+    <!-- نافذة الفوز بالمباراة كاملة -->
+    <div id="game-over-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <h1 class="trophy-anim">🏆</h1>
+        <h2 id="winner-name-text">فاز بالمباراة!</h2>
+        <p>حصل على 5 نقاط وتوّج بلقب بطل "كمّلها"!</p>
+        <button class="btn primary-btn" onclick="location.reload()">العودة للرئيسية 🏠</button>
+      </div>
+    </div>
+
+    <!-- نافذة اختيار هدف الكوماند (Target Picker) -->
+    <div id="command-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <h3 id="cmd-modal-title">تفعيل الأمر</h3>
+        <p id="cmd-modal-desc">اختر الهدف:</p>
+        <div id="cmd-targets-container" class="targets-list"></div>
+        <div id="cmd-values-container" class="values-list hidden"></div>
+        <div class="modal-buttons">
+          <button id="btn-confirm-command" class="btn primary-btn">تأكيد الأمر ⚡</button>
+          <button id="btn-cancel-command" class="btn cancel-btn">إلغاء ورمي الكارت ❌</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- نافذة شرح القواعد -->
+    <div id="rules-modal" class="modal-overlay hidden">
+      <div class="modal-card wide scrollable">
+        <h2>قواعد لعبة "كمّلها" 📜</h2>
+        <div class="rules-content">
+          <p><strong>الهدف:</strong> تجميع 4 كروت متطابقة من نفس الرقم (أو مدعومة بجوكر) لإعلان "كمّلتها!".</p>
+          <h4>تكوين الكروت (62 كارت):</h4>
+          <ul>
+            <li><strong>40 كارت أرقام:</strong> من 1 إلى 10 (4 ألوان مختلفة).</li>
+            <li><strong>4 جوكر:</strong> يحل محل أي كارت في يدك.</li>
+            <li><strong>4 اصطاد كارتك:</strong> اطلب كارت من خصم وبدله معه لو متوفر.</li>
+            <li><strong>4 لم كمالتك:</strong> خذ أي كارت من الأرض وبدله بكارت من يدك.</li>
+            <li><strong>4 اعكس لفتك:</strong> اعكس اتجاه اللعب (أو فوت دور الخصم في اللعب الثنائي).</li>
+            <li><strong>2 هو كدة:</strong> اجبر لاعباً على رمي يده وسحب 4 كروت جديدة.</li>
+            <li><strong>2 رخم عليهم:</strong> تجسس على كارت خصمك وبدله أو بدل سراً بين خصمين.</li>
+            <li><strong>2 براحتك:</strong> تحول لأي كارت كوماند ما عدا الجوكر.</li>
+          </ul>
+          <h4>احتساب النقاط:</h4>
+          <ul>
+            <li>4 كروت متطابقة بدون جوكر = نقطتان (2).</li>
+            <li>4 كروت مع جوكر = نقطة واحدة (1).</li>
+            <li>تجميع 4 كروت جوكر = فوز فوري بالمباراة (5 نقاط)!</li>
+            <li>أول من يجمع 5 نقاط يفوز بالمباراة كاملاً.</li>
+          </ul>
+        </div>
+        <button class="btn secondary-btn" onclick="closeRulesModal()">إغلاق</button>
+      </div>
+    </div>
+
+    <!-- نافذة شراء النسخة المادية الفاخرة -->
+    <div id="shop-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <h2>امتلك النسخة الورقية الحقيقية 🎴</h2>
+        <p>العب "كمّلها" على أرض الواقع مع أصحابك وعيلتك مع تصميم كروت فاخر ومقاوم للتلف!</p>
+        <div class="brand-box">
+          <p class="brand-name">براند: <strong>Wello_0</strong></p>
+          <p class="contact-phone">📞 هاتف: <strong>01121040020</strong></p>
+        </div>
+        <a href="https://wa.me/201121040020?text=أريد%20طلب%20لعبة%20كمّلها%20الورقية" target="_blank" class="btn whatsapp-btn">مراسلة واتساب مباشرة 💬</a>
+        <button class="btn text-btn" onclick="closeShopModal()">إغلاق</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
